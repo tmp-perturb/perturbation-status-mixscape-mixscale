@@ -79,6 +79,12 @@ def main() -> None:
             encoding="utf-8",
         )
         shutil.copy2(pooled_path, shared / "pooled_config.yaml")
+        # The unsharded classification output and source checkpoint are only
+        # construction intermediates. Frozen target shards contain the complete
+        # downstream contract, so excluding duplicates keeps the Omni artifact
+        # compact without changing any method input.
+        shutil.rmtree(initial_output)
+        shutil.rmtree(checkpoints)
         make_archive(shared, output / "shared_signature.tar.gz", "shared")
 
     elapsed = time.monotonic() - started

@@ -62,7 +62,7 @@ def r_env(project: Path, environment: str) -> dict[str, str]:
 
 
 def make_archive(source: Path, destination: Path, arcname: str) -> None:
-    with tarfile.open(destination, "w:gz") as archive:
+    with tarfile.open(destination, "w:gz", compresslevel=1) as archive:
         archive.add(source, arcname=arcname, recursive=True)
 
 
