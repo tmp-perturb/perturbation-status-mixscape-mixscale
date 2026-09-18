@@ -1,0 +1,3 @@
+entrypoints:
+  shared: shared.py
+  default: method.py
