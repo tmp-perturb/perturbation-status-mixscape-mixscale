@@ -48,7 +48,30 @@ def main() -> None:
         })
         config_path = temp / "mixscape.yaml"
         dump_yaml(config, config_path)
-        run([sys.executable, project / "03_mixscape" / "adapt_mixscape_input.py", "--config", config_path])
+        input_builder = config.get("input_builder", "adapter")
+        if input_builder == "usa_gene_sa_matrixmarket":
+            # Replogle stores S/U/A feature blocks. Rebuild the eligible USA
+            # MatrixMarket export from the injected H5AD, then apply the frozen
+            # streaming S+A (U excluded) conversion used by the benchmark.
+            raw_input = shared / "raw_usa_input"
+            raw_config = dict(config)
+            raw_config["input_dir"] = str(raw_input)
+            raw_config_path = temp / "mixscape_raw_usa.yaml"
+            dump_yaml(raw_config, raw_config_path)
+            run([sys.executable, project / "03_mixscape" / "adapt_mixscape_input.py", "--config", raw_config_path])
+            config["source_counts_mtx"] = str(raw_input / "counts.mtx.gz")
+            dump_yaml(config, config_path)
+            run([
+                project / "03_mixscape" / "bin" / "aggregate_usa_matrixmarket",
+                config["source_counts_mtx"], input_dir / "counts.mtx.gz",
+                config["gene_count"], config["selected_cell_count"],
+            ])
+            run([sys.executable, project / "03_mixscape" / "finalize_gene_sa_input.py", "--config", config_path])
+            shutil.rmtree(raw_input)
+        elif input_builder == "usa_gene_sa":
+            run([sys.executable, project / "03_mixscape" / "aggregate_usa_to_gene.py", "--config", config_path])
+        else:
+            run([sys.executable, project / "03_mixscape" / "adapt_mixscape_input.py", "--config", config_path])
         run([sys.executable, project / "03_mixscape" / "validate_mixscape_input.py", input_dir])
         run(
             [rscript(project, "mixscape"), project / "03_mixscape" / "run_mixscape.R", config_path],
