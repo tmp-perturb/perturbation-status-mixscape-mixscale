@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one perturbation-status method from a common frozen cohort."""
+"""Run Mixscape or Mixscale from the shared CalcPerturbSig cohort."""
 
 from __future__ import annotations
 
@@ -67,48 +67,7 @@ def run_mixscale(project: Path, spec: dict, shared: Path, work: Path, workers: i
     return root / "merged" / "mixscale_metadata.tsv.gz"
 
 
-def run_ps(project: Path, spec: dict, shared: Path, work: Path, workers: int) -> Path:
-    input_config = load_yaml(spec["ps_input_config"])
-    input_dir = work / "ps_input"
-    input_config.update({
-        "dataset": spec["dataset"], "source_h5ad": spec["h5ad"],
-        "input_dir": str(input_dir), "shared_sparse_input_dir": str(shared / "input"),
-        "seurat_rds": str(input_dir / "ps_input.rds"),
-    })
-    input_path = work / "ps_input.yaml"
-    dump_yaml(input_config, input_path)
-    run([sys.executable, project / "05_ps" / "adapt_ps_input.py", "--config", input_path])
-    run([rscript(project, "ps"), project / "05_ps" / "build_ps_seurat.R", "--config", input_path], env=r_env(project, "ps"))
-    config = load_yaml(spec["ps_run_config"])
-    output = work / "ps"
-    config.update({
-        "dataset": spec["dataset"], "input_rds": str(input_dir / "ps_input.rds"),
-        "barcode_table": str(input_dir / "barcode.tsv.gz"), "output_dir": str(output),
-        "work_dir": str(work / "ps_work"), "max_workers": workers,
-    })
-    config.pop("reference_result", None)
-    config_path = work / "ps_run.yaml"
-    dump_yaml(config, config_path)
-    run([sys.executable, project / "05_ps" / "sharding" / "run_scalable.py", "--config", config_path], env=r_env(project, "ps"))
-    return output / "ps_metadata.tsv"
-
-
-def run_baseline(project: Path, spec: dict, shared: Path, work: Path, workers: int) -> Path:
-    config = load_yaml(spec["baseline_config"])
-    output = work / "target_expression"
-    config.update({
-        "dataset": spec["dataset"], "checkpoint_dir": str(shared / "shards" / "checkpoints"),
-        "target_manifest": str(shared / "shards" / "target_manifest.tsv"),
-        "metadata": str(shared / "input" / "metadata.tsv.gz"), "output_dir": str(output),
-        "max_workers": workers,
-    })
-    config_path = work / "baseline.yaml"
-    dump_yaml(config, config_path)
-    run([sys.executable, project / "06_target_expression_baseline" / "run_baseline.py", "--config", config_path], env=r_env(project, "mixscape"))
-    return output / "target_expression_baseline.tsv"
-
-
-RUNNERS = {"mixscape": run_mixscape, "mixscale": run_mixscale, "ps": run_ps, "target_expression": run_baseline}
+RUNNERS = {"mixscape": run_mixscape, "mixscale": run_mixscale}
 
 
 def main() -> None:
@@ -139,7 +98,7 @@ def main() -> None:
         else:
             with result.open("rb") as source, gzip.open(result_out, "wb") as destination:
                 shutil.copyfileobj(source, destination)
-        method_root = result.parent.parent if args.method in {"mixscape", "mixscale"} else result.parent
+        method_root = result.parent.parent
         make_archive(method_root, output / "method_aux.tar.gz", args.method)
     elapsed = time.monotonic() - started
     write_json({
