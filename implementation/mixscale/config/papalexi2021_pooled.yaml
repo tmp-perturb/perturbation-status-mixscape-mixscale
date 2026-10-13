@@ -1,0 +1,25 @@
+module: M04
+method: Mixscale
+dataset: papalexi2021
+source_checkpoint_b: runtime/source/03_mixscape/checkpoints/papalexi2021/checkpoint_B.rds
+source_shard_root: runtime/source/03_mixscape/sharding/outputs/papalexi2021_pooled
+canonical_metadata: runtime/source/03_mixscape/inputs/papalexi2021/metadata.tsv.gz
+output_root: runtime/source/04_mixscale/sharding/outputs/papalexi2021_pooled
+seed: 20260902
+selection:
+  eligible_assignment_structures: [single_guide, concordant_construct]
+mixscale: &mixscale
+  input_assay: PRTB
+  score_slot: scale.data
+  de_assay: RNA
+  labels: gene
+  nt_class_name: non-targeting
+  new_class_name: mixscale_score
+  min_de_genes: 10
+  min_cells: 5
+  logfc_threshold: 0.25
+  pval_cutoff: 0.05
+  max_de_genes: 100
+  fine_mode: false
+  harmonize: false
+  min_prop_ntgd: 0.1

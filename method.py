@@ -14,7 +14,11 @@ import tempfile
 import time
 from pathlib import Path
 
-from common import dump_yaml, extract_archive, load_yaml, make_archive, r_env, rscript, run, write_json
+from common import dump_yaml, extract_archive, load_yaml, make_archive, rscript, run, write_json
+
+HERE = Path(__file__).resolve().parent
+MIXSCAPE = HERE / "implementation" / "mixscape"
+MIXSCALE = HERE / "implementation" / "mixscale"
 
 
 def _parallel(commands: list[tuple[list[object], Path, dict[str, str]]], workers: int) -> None:
@@ -24,8 +28,8 @@ def _parallel(commands: list[tuple[list[object], Path, dict[str, str]]], workers
             future.result()
 
 
-def run_mixscape(project: Path, spec: dict, shared: Path, work: Path, workers: int) -> Path:
-    pooled = load_yaml(spec["pooled_config"])
+def run_mixscape(spec: dict, shared: Path, work: Path, workers: int) -> Path:
+    pooled = load_yaml(MIXSCAPE / "sharding" / f'{spec["dataset"]}_pooled.yaml')
     root = work / "mixscape"
     commands = []
     for checkpoint in sorted((shared / "shards" / "checkpoints").glob("shard_*.rds")):
@@ -42,14 +46,14 @@ def run_mixscape(project: Path, spec: dict, shared: Path, work: Path, workers: i
         }
         config_path = root / "configs" / f"{shard}.yaml"
         dump_yaml(config, config_path)
-        commands.append(([rscript(project, "mixscape"), project / "03_mixscape" / "run_mixscape.R", config_path], root / "logs" / f"{shard}.log", r_env(project, "mixscape")))
+        commands.append(([rscript(), MIXSCAPE / "run_mixscape.R", config_path], root / "logs" / f"{shard}.log", {}))
     _parallel(commands, workers)
-    run([sys.executable, project / "03_mixscape" / "target_sharding" / "merge_pooled_shards.py", root, shared / "input" / "metadata.tsv.gz"])
+    run([sys.executable, MIXSCAPE / "target_sharding" / "merge_pooled_shards.py", root, shared / "input" / "metadata.tsv.gz"])
     return root / "merged" / "mixscape_metadata.tsv.gz"
 
 
-def run_mixscale(project: Path, spec: dict, shared: Path, work: Path, workers: int) -> Path:
-    config = load_yaml(spec["mixscale_config"])
+def run_mixscale(spec: dict, shared: Path, work: Path, workers: int) -> Path:
+    config = load_yaml(MIXSCALE / "config" / f'{spec["dataset"]}_pooled.yaml')
     root = work / "mixscale"
     config.update({
         "dataset": spec["dataset"], "source_shard_root": str(shared / "shards"),
@@ -61,9 +65,9 @@ def run_mixscale(project: Path, spec: dict, shared: Path, work: Path, workers: i
     commands = []
     for checkpoint in sorted((shared / "shards" / "checkpoints").glob("shard_*.rds")):
         shard = checkpoint.stem
-        commands.append(([rscript(project, "mixscale"), project / "04_mixscale" / "sharding" / "run_shard.R", config_path, checkpoint, root / "shards" / shard], root / "logs" / f"{shard}.log", r_env(project, "mixscale")))
+        commands.append(([rscript(), MIXSCALE / "sharding" / "run_shard.R", config_path, checkpoint, root / "shards" / shard], root / "logs" / f"{shard}.log", {}))
     _parallel(commands, workers)
-    run([rscript(project, "mixscale"), project / "04_mixscale" / "sharding" / "finalize.R", config_path, root], env=r_env(project, "mixscale"))
+    run([rscript(), MIXSCALE / "sharding" / "finalize.R", config_path, root])
     return root / "merged" / "mixscale_metadata.tsv.gz"
 
 
@@ -84,12 +88,11 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     spec = json.loads(Path(getattr(args, "data.spec")).read_text(encoding="utf-8"))
     spec["h5ad"] = str(Path(getattr(args, "data.h5ad")).resolve())
-    project = Path(spec["project_root"])
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix=f"pse-{args.method}-{args.name}-") as temp_text:
         temp = Path(temp_text)
         extract_archive(Path(getattr(args, "shared_signature.bundle")), temp)
-        result = RUNNERS[args.method](project, spec, temp / "shared", temp / "work", args.workers)
+        result = RUNNERS[args.method](spec, temp / "shared", temp / "work", args.workers)
         if not result.is_file():
             raise FileNotFoundError(result)
         result_out = output / "status_result.tsv.gz"

@@ -1,0 +1,48 @@
+module: M03
+method: Mixscape
+dataset: replogle2022_sa
+source_dataset: replogle2022
+source_h5ad: runtime/source/01_standardize_inputs/outputs/replogle2022/perturbation_adata.h5ad
+input_builder: usa_gene_sa_matrixmarket
+source_counts_mtx: runtime/source/03_mixscape/inputs/replogle2022/counts.mtx.gz
+gene_count: 38661
+selected_cell_count: 337402
+input_dir: runtime/source/03_mixscape/inputs/replogle2022_gene_sa
+output_dir: runtime/source/03_mixscape/outputs/replogle2022_gene_sa
+# Source-cell block size for bounded contiguous HDF5 reads.
+row_chunk_size: 4096
+selection:
+  mode: eligible
+  eligible_assignment_structures:
+    - single_guide
+    - concordant_construct
+  max_cells: 0
+metadata_exclude_regex: '^(guide_|guide_identity$|guide_ids$)'
+seed: 20260902
+logging:
+  directory: runtime/source/03_mixscape/logs/replogle2022_sa
+  stage_log: runtime/source/03_mixscape/logs/replogle2022_sa/stage_resources.jsonl
+checkpoints:
+  enabled: true
+  directory: runtime/source/03_mixscape/checkpoints/replogle2022_sa
+mixscape:
+  input_assay: RNA
+  signature_assay: PRTB
+  signature_slot: data
+  classification_slot: scale.data
+  guide_class: gene
+  nt_cell_class: non-targeting
+  split_by: batch_id
+  num_neighbors: 20
+  reduction: pca
+  labels: gene
+  nt_class_name: non-targeting
+  new_class_name: mixscape_class
+  min_de_genes: 10
+  min_cells: 5
+  de_assay: RNA
+  logfc_threshold: 0.25
+  iter_num: 10
+  prtb_type: CRISPRi
+  nfeatures: 2000
+  npcs: 30

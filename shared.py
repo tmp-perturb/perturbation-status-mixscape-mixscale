@@ -12,7 +12,12 @@ import tempfile
 import time
 from pathlib import Path
 
-from common import dump_yaml, load_yaml, make_archive, r_env, rscript, run, write_json
+from common import dump_yaml, load_yaml, make_archive, rscript, run, write_json
+
+HERE = Path(__file__).resolve().parent
+MIXSCAPE = HERE / "implementation" / "mixscape"
+CONFIGS = MIXSCAPE / "config"
+POOLED_CONFIGS = MIXSCAPE / "sharding"
 
 
 def main() -> None:
@@ -24,7 +29,6 @@ def main() -> None:
     args = parser.parse_args()
     h5ad = Path(getattr(args, "data.h5ad")).resolve()
     spec = json.loads(Path(getattr(args, "data.spec")).read_text(encoding="utf-8"))
-    project = Path(spec["project_root"])
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -37,7 +41,8 @@ def main() -> None:
         checkpoints = shared / "initial_checkpoints"
         logs = shared / "logs"
 
-        config = load_yaml(spec["mixscape_config"])
+        config_name = "replogle2022_sa.yaml" if args.name == "replogle2022" else f"{args.name}.yaml"
+        config = load_yaml(CONFIGS / config_name)
         config.update({
             "dataset": args.name,
             "source_h5ad": str(h5ad),
@@ -58,28 +63,29 @@ def main() -> None:
             raw_config["input_dir"] = str(raw_input)
             raw_config_path = temp / "mixscape_raw_usa.yaml"
             dump_yaml(raw_config, raw_config_path)
-            run([sys.executable, project / "03_mixscape" / "adapt_mixscape_input.py", "--config", raw_config_path])
+            run([sys.executable, MIXSCAPE / "adapt_mixscape_input.py", "--config", raw_config_path])
             config["source_counts_mtx"] = str(raw_input / "counts.mtx.gz")
             dump_yaml(config, config_path)
+            binary = temp / "aggregate_usa_matrixmarket"
+            run(["g++", "-O3", "-std=c++17", MIXSCAPE / "aggregate_usa_matrixmarket.cpp", "-lz", "-o", binary])
             run([
-                project / "03_mixscape" / "bin" / "aggregate_usa_matrixmarket",
+                binary,
                 config["source_counts_mtx"], input_dir / "counts.mtx.gz",
                 config["gene_count"], config["selected_cell_count"],
             ])
-            run([sys.executable, project / "03_mixscape" / "finalize_gene_sa_input.py", "--config", config_path])
+            run([sys.executable, MIXSCAPE / "finalize_gene_sa_input.py", "--config", config_path])
             shutil.rmtree(raw_input)
         elif input_builder == "usa_gene_sa":
-            run([sys.executable, project / "03_mixscape" / "aggregate_usa_to_gene.py", "--config", config_path])
+            run([sys.executable, MIXSCAPE / "aggregate_usa_to_gene.py", "--config", config_path])
         else:
-            run([sys.executable, project / "03_mixscape" / "adapt_mixscape_input.py", "--config", config_path])
-        run([sys.executable, project / "03_mixscape" / "validate_mixscape_input.py", input_dir])
+            run([sys.executable, MIXSCAPE / "adapt_mixscape_input.py", "--config", config_path])
+        run([sys.executable, MIXSCAPE / "validate_mixscape_input.py", input_dir])
         run(
-            [rscript(project, "mixscape"), project / "03_mixscape" / "run_mixscape.R", config_path],
+            [rscript(), MIXSCAPE / "run_mixscape.R", config_path],
             log=logs / "mixscape.log",
-            env=r_env(project, "mixscape"),
         )
 
-        pooled = load_yaml(spec["pooled_config"])
+        pooled = load_yaml(POOLED_CONFIGS / f"{args.name}_pooled.yaml")
         pooled.update({
             "dataset_prefix": args.name,
             "source_h5ad": str(h5ad),
@@ -91,9 +97,8 @@ def main() -> None:
         dump_yaml(pooled, pooled_path)
         shard_started = time.monotonic()
         run(
-            [rscript(project, "mixscape"), project / "03_mixscape" / "target_sharding" / "build_target_shards.R", pooled_path],
+            [rscript(), MIXSCAPE / "target_sharding" / "build_target_shards.R", pooled_path],
             log=logs / "shard_build.log",
-            env=r_env(project, "mixscape"),
         )
         shard_seconds = time.monotonic() - shard_started
         (shared / "shard_build.time.txt").write_text(

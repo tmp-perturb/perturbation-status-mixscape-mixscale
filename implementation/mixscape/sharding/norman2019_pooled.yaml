@@ -1,0 +1,36 @@
+module: M03
+method: Mixscape
+dataset_prefix: norman2019_pooled
+source_h5ad: runtime/source/01_standardize_inputs/outputs/norman2019/perturbation_adata.h5ad
+source_checkpoint_b: runtime/source/03_mixscape/checkpoints/norman2019/checkpoint_B.rds
+input_dir: runtime/source/03_mixscape/inputs/norman2019
+shard_root: runtime/source/03_mixscape/sharding/outputs/norman2019_pooled
+n_shards: 8
+seed: 20260902
+labels: gene
+nt_class_name: non-targeting
+selection:
+  mode: eligible
+  eligible_assignment_structures: [single_guide, concordant_construct]
+  max_cells: 0
+mixscape:
+  input_assay: RNA
+  signature_assay: PRTB
+  signature_slot: data
+  classification_slot: scale.data
+  guide_class: gene
+  nt_cell_class: non-targeting
+  split_by: null
+  num_neighbors: 20
+  reduction: pca
+  labels: gene
+  nt_class_name: non-targeting
+  new_class_name: mixscape_class
+  min_de_genes: 10
+  min_cells: 5
+  de_assay: RNA
+  logfc_threshold: 0.25
+  iter_num: 10
+  prtb_type: CRISPRa
+  nfeatures: 2000
+  npcs: 30
