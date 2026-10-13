@@ -6,8 +6,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
-  packages: write
+  contents: write
 
 jobs:
   publish:
@@ -22,7 +21,9 @@ jobs:
           apptainer-version: 1.4.2
       - name: Build and test image
         run: apptainer build "${{ matrix.environment }}.sif" "environment/${{ matrix.environment }}.def"
-      - name: Log in to GHCR
-        run: printf '%s' "${{ secrets.GITHUB_TOKEN }}" | apptainer registry login --username "${{ github.actor }}" --password-stdin oras://ghcr.io
-      - name: Publish immutable release tag
-        run: apptainer push "${{ matrix.environment }}.sif" "oras://ghcr.io/tmp-perturb/perturbation-status-${{ matrix.environment }}:0.4.1"
+      - name: Publish public release image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v0.4.2 >/dev/null 2>&1 || gh release create v0.4.2 --title "Fixed environments v0.4.2" --notes "Versioned Apptainer environments for the Omnibenchmark modules." || gh release view v0.4.2
+          gh release upload v0.4.2 "${{ matrix.environment }}.sif" --clobber

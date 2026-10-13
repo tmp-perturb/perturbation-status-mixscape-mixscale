@@ -3,7 +3,7 @@ From: condaforge/miniforge3:25.3.0-3
 
 %labels
     org.opencontainers.image.title perturbation-status-mixscape
-    org.opencontainers.image.version 0.4.1
+    org.opencontainers.image.version 0.4.2
     org.opencontainers.image.source https://github.com/tmp-perturb/perturbation-status-mixscape-mixscale
 
 %post
