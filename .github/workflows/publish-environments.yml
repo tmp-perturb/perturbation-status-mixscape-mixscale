@@ -25,5 +25,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view v0.4.3 >/dev/null 2>&1 || gh release create v0.4.3 --title "Fixed environments v0.4.3" --notes "Versioned Apptainer environments for the Omnibenchmark modules." || gh release view v0.4.3
-          gh release upload v0.4.3 "${{ matrix.environment }}.sif" --clobber
+          gh release view v0.4.4 >/dev/null 2>&1 || gh release create v0.4.4 --title "Fixed environments v0.4.4" --notes "Versioned Apptainer environments for the Omnibenchmark modules." || gh release view v0.4.4
+          gh release upload v0.4.4 "${{ matrix.environment }}.sif" --clobber

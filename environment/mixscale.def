@@ -3,7 +3,7 @@ From: condaforge/miniforge3:25.3.0-3
 
 %labels
     org.opencontainers.image.title perturbation-status-mixscale
-    org.opencontainers.image.version 0.4.3
+    org.opencontainers.image.version 0.4.4
     org.opencontainers.image.source https://github.com/tmp-perturb/perturbation-status-mixscape-mixscale
 
 %post
@@ -19,4 +19,4 @@ From: condaforge/miniforge3:25.3.0-3
 
 %test
     python -c "import anndata, h5py, numpy, pandas, pyarrow, scipy, yaml"
-    Rscript -e "stopifnot(packageVersion('Mixscape') == '0.3.0', packageVersion('presto') == '1.1.0')"
+    Rscript -e "stopifnot(packageVersion('Mixscale') == '0.3.0', packageVersion('presto') == '1.1.0')"
