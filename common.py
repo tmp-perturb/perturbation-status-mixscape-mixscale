@@ -58,6 +58,21 @@ def rscript() -> str:
     return executable("Rscript")
 
 
+def prepare_r_library(work: Path, archives: list[Path]) -> dict[str, str]:
+    """Install pinned, module-bundled R sources into a task-local library."""
+    library = work / "r-library"
+    library.mkdir(parents=True, exist_ok=True)
+    env = {"R_LIBS_USER": str(library)}
+    for archive in archives:
+        if not archive.is_file():
+            raise FileNotFoundError(f"Bundled R source archive is missing: {archive}")
+        run(
+            [executable("R"), "CMD", "INSTALL", "--no-multiarch", "--library", library, archive],
+            env=env,
+        )
+    return env
+
+
 def make_archive(source: Path, destination: Path, arcname: str) -> None:
     with tarfile.open(destination, "w:gz", compresslevel=1) as archive:
         archive.add(source, arcname=arcname, recursive=True)

@@ -14,11 +14,12 @@ import tempfile
 import time
 from pathlib import Path
 
-from common import dump_yaml, extract_archive, load_yaml, make_archive, rscript, run, write_json
+from common import dump_yaml, extract_archive, load_yaml, make_archive, prepare_r_library, rscript, run, write_json
 
 HERE = Path(__file__).resolve().parent
 MIXSCAPE = HERE / "implementation" / "mixscape"
 MIXSCALE = HERE / "implementation" / "mixscale"
+VENDOR = HERE / "vendor"
 
 
 def _parallel(commands: list[tuple[list[object], Path, dict[str, str]]], workers: int) -> None:
@@ -28,7 +29,7 @@ def _parallel(commands: list[tuple[list[object], Path, dict[str, str]]], workers
             future.result()
 
 
-def run_mixscape(spec: dict, shared: Path, work: Path, workers: int) -> Path:
+def run_mixscape(spec: dict, shared: Path, work: Path, workers: int, r_env: dict[str, str]) -> Path:
     pooled = load_yaml(MIXSCAPE / "sharding" / f'{spec["dataset"]}_pooled.yaml')
     root = work / "mixscape"
     commands = []
@@ -46,13 +47,13 @@ def run_mixscape(spec: dict, shared: Path, work: Path, workers: int) -> Path:
         }
         config_path = root / "configs" / f"{shard}.yaml"
         dump_yaml(config, config_path)
-        commands.append(([rscript(), MIXSCAPE / "run_mixscape.R", config_path], root / "logs" / f"{shard}.log", {}))
+        commands.append(([rscript(), MIXSCAPE / "run_mixscape.R", config_path], root / "logs" / f"{shard}.log", r_env))
     _parallel(commands, workers)
     run([sys.executable, MIXSCAPE / "target_sharding" / "merge_pooled_shards.py", root, shared / "input" / "metadata.tsv.gz"])
     return root / "merged" / "mixscape_metadata.tsv.gz"
 
 
-def run_mixscale(spec: dict, shared: Path, work: Path, workers: int) -> Path:
+def run_mixscale(spec: dict, shared: Path, work: Path, workers: int, r_env: dict[str, str]) -> Path:
     config = load_yaml(MIXSCALE / "config" / f'{spec["dataset"]}_pooled.yaml')
     root = work / "mixscale"
     config.update({
@@ -65,9 +66,9 @@ def run_mixscale(spec: dict, shared: Path, work: Path, workers: int) -> Path:
     commands = []
     for checkpoint in sorted((shared / "shards" / "checkpoints").glob("shard_*.rds")):
         shard = checkpoint.stem
-        commands.append(([rscript(), MIXSCALE / "sharding" / "run_shard.R", config_path, checkpoint, root / "shards" / shard], root / "logs" / f"{shard}.log", {}))
+        commands.append(([rscript(), MIXSCALE / "sharding" / "run_shard.R", config_path, checkpoint, root / "shards" / shard], root / "logs" / f"{shard}.log", r_env))
     _parallel(commands, workers)
-    run([rscript(), MIXSCALE / "sharding" / "finalize.R", config_path, root])
+    run([rscript(), MIXSCALE / "sharding" / "finalize.R", config_path, root], env=r_env)
     return root / "merged" / "mixscale_metadata.tsv.gz"
 
 
@@ -91,8 +92,14 @@ def main() -> None:
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix=f"pse-{args.method}-{args.name}-") as temp_text:
         temp = Path(temp_text)
+        archives = [VENDOR / "presto-3c97180d.tar.gz"]
+        if args.method == "mixscape":
+            archives.insert(0, VENDOR / "seurat-084d9e40.tar.gz")
+        else:
+            archives.append(VENDOR / "mixscale-3d3a2cd1.tar.gz")
+        r_env = prepare_r_library(temp, archives)
         extract_archive(Path(getattr(args, "shared_signature.bundle")), temp)
-        result = RUNNERS[args.method](spec, temp / "shared", temp / "work", args.workers)
+        result = RUNNERS[args.method](spec, temp / "shared", temp / "work", args.workers, r_env)
         if not result.is_file():
             raise FileNotFoundError(result)
         result_out = output / "status_result.tsv.gz"

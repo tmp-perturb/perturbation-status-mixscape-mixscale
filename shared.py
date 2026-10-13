@@ -12,12 +12,13 @@ import tempfile
 import time
 from pathlib import Path
 
-from common import dump_yaml, load_yaml, make_archive, rscript, run, write_json
+from common import dump_yaml, load_yaml, make_archive, prepare_r_library, rscript, run, write_json
 
 HERE = Path(__file__).resolve().parent
 MIXSCAPE = HERE / "implementation" / "mixscape"
 CONFIGS = MIXSCAPE / "config"
 POOLED_CONFIGS = MIXSCAPE / "sharding"
+VENDOR = HERE / "vendor"
 
 
 def main() -> None:
@@ -35,6 +36,10 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix=f"pse-shared-{args.name}-") as temp_text:
         temp = Path(temp_text)
+        r_env = prepare_r_library(
+            temp,
+            [VENDOR / "seurat-084d9e40.tar.gz", VENDOR / "presto-3c97180d.tar.gz"],
+        )
         shared = temp / "shared"
         input_dir = shared / "input"
         initial_output = shared / "initial_mixscape"
@@ -83,6 +88,7 @@ def main() -> None:
         run(
             [rscript(), MIXSCAPE / "run_mixscape.R", config_path],
             log=logs / "mixscape.log",
+            env=r_env,
         )
 
         pooled = load_yaml(POOLED_CONFIGS / f"{args.name}_pooled.yaml")
@@ -99,6 +105,7 @@ def main() -> None:
         run(
             [rscript(), MIXSCAPE / "target_sharding" / "build_target_shards.R", pooled_path],
             log=logs / "shard_build.log",
+            env=r_env,
         )
         shard_seconds = time.monotonic() - shard_started
         (shared / "shard_build.time.txt").write_text(

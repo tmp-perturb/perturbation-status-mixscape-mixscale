@@ -8,5 +8,7 @@ preference.
 
 The reviewed implementation scripts and dataset-specific configuration are
 versioned under `implementation/`; no runtime access to the original benchmark
-development directory is required. Reproducible Apptainer definitions for the
-two method environments are under `environment/` and pin upstream Git commits.
+development directory is required. Public dependencies are supplied by the
+plan's Conda YAML files. Exact Seurat, presto, and Mixscale revisions are
+archived under `vendor/` and installed into a task-local R library at runtime,
+without a personal R library or network checkout.
