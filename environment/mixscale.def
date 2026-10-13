@@ -3,17 +3,18 @@ From: condaforge/miniforge3:25.3.0-3
 
 %labels
     org.opencontainers.image.title perturbation-status-mixscale
-    org.opencontainers.image.version 0.4.0
+    org.opencontainers.image.version 0.4.1
     org.opencontainers.image.source https://github.com/tmp-perturb/perturbation-status-mixscape-mixscale
 
 %post
     mamba install -y -c conda-forge \
-      python=3.13.7 numpy=2.4.3 pandas=2.3.3 scipy=1.17.1 h5py=3.16.0 \
+      python=3.12.12 numpy=2.4.3 pandas=2.3.3 scipy=1.17.1 h5py=3.16.0 \
       pyyaml=6.0.3 pyarrow=24.0.0 anndata=0.12.18 psutil=7.2.2 \
       r-base=4.5.3 r-remotes r-seurat r-future r-ggplot2 r-ggridges r-gplots \
-      r-jsonlite r-yaml r-pma r-matrixstats r-rcolorbrewer bioconductor-glmgampoi \
+      r-jsonlite r-yaml r-pma r-matrixstats r-rcolorbrewer r-biocmanager \
       r-protoclust compilers make && mamba clean -afy
     Rscript -e "remotes::install_github('immunogenomics/presto@3c97180d90d330524b5b8353a342ab2f4b990d21', upgrade='never', dependencies=FALSE, repos='https://cloud.r-project.org')"
+    Rscript -e "BiocManager::install('glmGamPoi', ask=FALSE, update=FALSE)"
     Rscript -e "remotes::install_github('satijalab/Mixscape@3d3a2cd12e62382df01c056536d967534b2de3a9', upgrade='never', dependencies=FALSE, repos='https://cloud.r-project.org')"
 
 %test
